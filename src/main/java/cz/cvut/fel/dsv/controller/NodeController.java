@@ -2,16 +2,36 @@ package cz.cvut.fel.dsv.controller;
 
 import io.javalin.Javalin;
 
-import static io.javalin.apibuilder.ApiBuilder.crud;
-import static io.javalin.apibuilder.ApiBuilder.get;
+import io.javalin.http.Context;
+
+import static io.javalin.apibuilder.ApiBuilder.*;
 
 public class NodeController {
 
-    public NodeController() {
+    public NodeController(int port) {
+        setupServer(port);
+    }
+
+    public void setupServer(int port) {
         Javalin app = Javalin.create(config -> {
             config.router.apiBuilder(() -> {
                 get("/", ctx -> ctx.result("Hello World"));
+                get("/join", ctx -> ctx.result("join"));
+                get("/leave", ctx -> ctx.result("leave"));
+                get("/kill", ctx -> ctx.result("kill"));
+                get("/revive", ctx -> ctx.result("revive"));
+                get("/status", ctx -> ctx.result("join"));
+                post("/delay/{milliseconds}", this::setDelay);
+                post("/start/{workAmount}", this::startWork);
             });
-        }).start("::",9000);
+        }).start("::",port);
+    }
+
+    private void setDelay(Context ctx) {
+        ctx.json("Delay set to: " + ctx.pathParam("milliseconds"));
+    }
+
+    private void startWork(Context ctx) {
+        ctx.json("Starting work for amount: " + ctx.pathParam("workAmount"));
     }
 }
