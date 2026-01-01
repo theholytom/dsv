@@ -8,11 +8,11 @@ import static io.javalin.apibuilder.ApiBuilder.*;
 
 public class NodeController {
 
-    public NodeController(int port) {
-        setupServer(port);
+    public NodeController(int port, String ip) {
+        setupServer(port, ip);
     }
 
-    public void setupServer(int port) {
+    public void setupServer(int port, String ip) {
         Javalin app = Javalin.create(config -> {
             config.router.apiBuilder(() -> {
                 get("/", ctx -> ctx.result("Hello World"));
@@ -24,7 +24,7 @@ public class NodeController {
                 post("/delay/{milliseconds}", this::setDelay);
                 post("/start/{workAmount}", this::startWork);
             });
-        }).start("::",port);
+        }).start(ip ,port);
     }
 
     private void setDelay(Context ctx) {
