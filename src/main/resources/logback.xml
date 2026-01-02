@@ -42,12 +42,12 @@
 
 
 
-<!--    &lt;!&ndash; Logger pro Node komponenty &ndash;&gt;-->
-<!--    <logger name="com.dsv.node" level="INFO" additivity="false">-->
+    <!-- Logger pro Node komponenty -->
+    <logger name="cz.cvut.fel.dsv.node" level="INFO" additivity="false">
 <!--        <appender-ref ref="NODE_FILE"/>-->
 <!--        <appender-ref ref="ALL_FILE"/>-->
-<!--        <appender-ref ref="CONSOLE"/>-->
-<!--    </logger>-->
+        <appender-ref ref="CONSOLE"/>
+    </logger>
 
     <!-- Root logger pro všechny ostatní logy -->
     <root level="INFO">
