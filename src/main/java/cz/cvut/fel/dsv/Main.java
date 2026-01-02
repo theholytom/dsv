@@ -1,28 +1,42 @@
 package cz.cvut.fel.dsv;
 
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.DeliverCallback;
 import cz.cvut.fel.dsv.config.ConfigLoader;
-import cz.cvut.fel.dsv.controller.NodeController;
 import cz.cvut.fel.dsv.node.Node;
 import cz.cvut.fel.dsv.node.NodeDetails;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
+import java.util.concurrent.TimeoutException;
+
 
 @Slf4j
 public class Main {
+
+    private static final String NODE_EXCHANGE = "nodes.topic";
+
     public static void main(String[] args) {
-        log.info("App started");
 
         String nodeId = parseNodeId(args);
 
-        System.out.println("Starting node " + nodeId);
+        log.info("Starting node {}", nodeId);
 
         try {
             NodeDetails config = ConfigLoader.load(nodeId);
-            Node node = new Node(config);
+            Channel channel = createRabbitMQConnection();
+
+
+            Node node = new Node(config, channel, NODE_EXCHANGE);
+            node.start();
 
             Thread.sleep(2000);
 
             keepAlive();
+
+
 
         } catch (Exception e) {
             log.error("Node startup failed", e);
@@ -53,5 +67,18 @@ public class Main {
             Thread.currentThread().join();
         } catch (InterruptedException ignored) {
         }
+    }
+
+    private static Channel createRabbitMQConnection() throws IOException, TimeoutException {
+        try {
+            ConnectionFactory factory = new ConnectionFactory();
+            factory.setHost("localhost");
+
+            Connection connection = factory.newConnection();
+            return connection.createChannel();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
     }
 }
