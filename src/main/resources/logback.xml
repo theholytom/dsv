@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration >
+    <!-- Definice vzoru pro logy -->
+    <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>
+
+    <!-- Appender pro konzoli -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${LOG_PATTERN}</pattern>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
+    </appender>
+
+<!--    &lt;!&ndash; Appender pro všechny logy &ndash;&gt;-->
+<!--    <appender name="ALL_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>logs/all.log</file>-->
+<!--        <append>true</append>-->
+<!--        <immediateFlush>true</immediateFlush>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>logs/all-%d{yyyy-MM-dd}.log</fileNamePattern>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--        <encoder>-->
+<!--            <pattern>${LOG_PATTERN}</pattern>-->
+<!--        </encoder>-->
+<!--    </appender>-->
+
+<!--    &lt;!&ndash; Appender pro Node logy &ndash;&gt;-->
+<!--    <appender name="NODE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">-->
+<!--        <file>logs/node.log</file>-->
+<!--        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">-->
+<!--            <fileNamePattern>logs/node-%d{yyyy-MM-dd}.log</fileNamePattern>-->
+<!--            <maxHistory>30</maxHistory>-->
+<!--        </rollingPolicy>-->
+<!--        <encoder>-->
+<!--            <pattern>${LOG_PATTERN}</pattern>-->
+<!--        </encoder>-->
+<!--    </appender>-->
+
+
+
+
+    <!-- Logger pro Node komponenty -->
+    <logger name="cz.cvut.fel.dsv.node" level="INFO" additivity="false">
+<!--        <appender-ref ref="NODE_FILE"/>-->
+<!--        <appender-ref ref="ALL_FILE"/>-->
+        <appender-ref ref="CONSOLE"/>
+    </logger>
+
+    <!-- Root logger pro všechny ostatní logy -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
