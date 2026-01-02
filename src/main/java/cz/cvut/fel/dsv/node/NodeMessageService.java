@@ -62,8 +62,12 @@ public class NodeMessageService {
                     System.out.println("Content: " + message.getContent());
                     break;
                 case JOIN:
-                    log.info("Processing JOIN from node {}", message.getSenderId());
+                    log.info("Processing JOIN request from node {}", message.getSenderId());
                     handleJoinMessage(message.getSenderId());
+                    break;
+                case LEAVE:
+                    log.info("Processing LEAVE request from node {}", message.getSenderId());
+                    handleLeaveMessage(message.getSenderId());
                     break;
                 case TOPOLOGY_UPDATE:
                     log.info("Processing TOPOLOGY_UPDATE from node {}", message.getSenderId());
@@ -118,20 +122,61 @@ public class NodeMessageService {
         if  (presentOrder.get(0).equals(nodeId)) {
 
             presentOrder.add(senderId);
-            presentOrder.sort(String.CASE_INSENSITIVE_ORDER);
-            int version = node.getTopology().getVersion();
-            version++;
 
-            Topology newTop = new Topology(new ArrayList<>(presentOrder), version);
+            Topology newTop = sortOrderAndIncreaseVersion(presentOrder);
 
             log.info("NODE {}: Node {} was added to topology, sending new topology: {}", nodeId, senderId, newTop);
             sendTopologyUpdateMessage(newTop);
+        }
+    }
 
+    private void handleLeaveMessage(String senderId) {
+
+        ArrayList<String> presentOrder = node.getTopology().getOrder();
+
+        // node cannot process own leave request
+        if (senderId.equals(nodeId)) {
+            log.info("Node {} cannot process own leave request", senderId);
+            return;
+        }
+
+        // if order is empty, it means that node is either alone or not part of the topology
+        if (presentOrder.isEmpty()) return;
+
+        // if leave request sender is not a part of the network -> ignore
+        if (!presentOrder.contains(senderId)) {
+            log.info("Node {} is not part of topology", senderId);
+            return;
+        }
+
+        // if the leader is leaving, the topology update must be done by new leader - second-lowest id
+        int index = 0;
+        if (senderId.equals(presentOrder.get(0))) index = 1;
+
+        // if node is leader -> exclude requester from the network and broadcast topology update
+        if  (presentOrder.get(index).equals(nodeId)) {
+
+            presentOrder.remove(senderId);
+
+            Topology newTop = sortOrderAndIncreaseVersion(presentOrder);
+
+            log.info("NODE {}: Node {} was removed from topology, sending new topology: {}", nodeId, senderId, newTop);
+            sendTopologyUpdateMessage(newTop);
         }
     }
 
     private void handleTopologyUpdate(Message message) {
         log.info("New topology update to be set: {}", message.getTopology());
         node.setTopology(message.getTopology());
+    }
+
+    // ----------------------- helper metody -----------------------
+
+    private Topology sortOrderAndIncreaseVersion(ArrayList<String> list) {
+        list.sort(String.CASE_INSENSITIVE_ORDER);
+        int version = node.getTopology().getVersion();
+        version++;
+
+        return new Topology(new ArrayList<>(list), version);
     }
 }
