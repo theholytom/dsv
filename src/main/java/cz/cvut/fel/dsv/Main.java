@@ -3,15 +3,10 @@ package cz.cvut.fel.dsv;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
-import com.rabbitmq.client.DeliverCallback;
 import cz.cvut.fel.dsv.config.ConfigLoader;
 import cz.cvut.fel.dsv.node.Node;
 import cz.cvut.fel.dsv.node.NodeDetails;
 import lombok.extern.slf4j.Slf4j;
-
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
-
 
 @Slf4j
 public class Main {
@@ -35,8 +30,6 @@ public class Main {
             Thread.sleep(2000);
 
             keepAlive();
-
-
 
         } catch (Exception e) {
             log.error("Node startup failed", e);
@@ -69,7 +62,7 @@ public class Main {
         }
     }
 
-    private static Channel createRabbitMQConnection() throws IOException, TimeoutException {
+    private static Channel createRabbitMQConnection() {
         try {
             ConnectionFactory factory = new ConnectionFactory();
             factory.setHost("localhost");
