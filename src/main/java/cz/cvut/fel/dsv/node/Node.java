@@ -4,9 +4,12 @@ import com.rabbitmq.client.Channel;
 import cz.cvut.fel.dsv.controller.NodeController;
 import cz.cvut.fel.dsv.message.Message;
 import cz.cvut.fel.dsv.message.MessageType;
+import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
 
 @Slf4j
 public class Node {
@@ -14,12 +17,17 @@ public class Node {
     private final NodeDetails details;
     private final Channel channel;
     private NodeMessageService messageService;
+    @Getter
     private final String nodeId;
+    @Getter
+    @Setter
+    private Topology topology;
 
     public Node(NodeDetails details, Channel channel, String exchangeName) {
         this.details = details;
         this.channel = channel;
         this.exchangeName = exchangeName;
+        this.topology = new Topology(new ArrayList<>(), 0);
 
         this.nodeId = details.getNodeId();
     }
@@ -27,12 +35,12 @@ public class Node {
     public void start() {
 
         setupQueue();
-        new NodeController(details.getPort(), details.getHost());
-        messageService = new NodeMessageService(channel, exchangeName);
+        messageService = new NodeMessageService(channel, exchangeName, this);
+        new NodeController(details.getPort(), details.getHost(), messageService);
 
-        // TESTING
-
-        messageService.sendMessage(new Message(nodeId, "all", MessageType.HEALTHCHECK, "Node " + nodeId + "žije!!!"));
+//        // TESTING
+//
+//        messageService.sendMessage(new Message(nodeId, "all", MessageType.HEALTHCHECK, "Node " + nodeId + "žije!!!"));
     }
 
     private void setupQueue() {
@@ -43,7 +51,7 @@ public class Node {
 
             String queueName = nodeId + "-node-queue";
 
-            channel.queueDeclare(queueName, true, false, false, null);
+            channel.queueDeclare(queueName, false, true, true, null);
 
             channel.queueBind(queueName, exchangeName, "*." + nodeId + ".#");
             channel.queueBind(queueName, exchangeName, "broadcast.#");
