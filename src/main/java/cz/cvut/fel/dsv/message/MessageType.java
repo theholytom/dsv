@@ -5,5 +5,6 @@ public enum MessageType {
     TOKEN,
     WORK,
     JOIN,
-    LEAVE
+    LEAVE,
+    TOPOLOGY_UPDATE,
 }
