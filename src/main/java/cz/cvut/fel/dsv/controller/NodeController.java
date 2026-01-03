@@ -1,26 +1,34 @@
 package cz.cvut.fel.dsv.controller;
 
+import cz.cvut.fel.dsv.node.Node;
+import cz.cvut.fel.dsv.node.NodeMessageService;
 import io.javalin.Javalin;
 
 import io.javalin.http.Context;
+import lombok.extern.slf4j.Slf4j;
 
 import static io.javalin.apibuilder.ApiBuilder.*;
 
+@Slf4j
 public class NodeController {
 
-    public NodeController(int port, String ip) {
+    private final NodeMessageService messageService;
+    private final Node node;
+
+    public NodeController(int port, String ip, NodeMessageService service, Node node) {
         setupServer(port, ip);
+        messageService = service;
+        this.node = node;
     }
 
     public void setupServer(int port, String ip) {
         Javalin app = Javalin.create(config -> {
             config.router.apiBuilder(() -> {
                 get("/", ctx -> ctx.result("Hello World"));
-                get("/join", ctx -> ctx.result("join"));
-                get("/leave", ctx -> ctx.result("leave"));
-                get("/kill", ctx -> ctx.result("kill"));
-                get("/revive", ctx -> ctx.result("revive"));
-                get("/status", ctx -> ctx.result("join"));
+                get("/join", this::join);
+                get("/leave", this::leave);
+                get("/kill", this::kill);
+                get("/status", this::getStatus);
                 post("/delay/{milliseconds}", this::setDelay);
                 post("/start/{workAmount}", this::startWork);
             });
@@ -28,10 +36,40 @@ public class NodeController {
     }
 
     private void setDelay(Context ctx) {
+        log.info("Set delay request received with value {}", ctx.pathParam("milliseconds"));
         ctx.json("Delay set to: " + ctx.pathParam("milliseconds"));
     }
 
     private void startWork(Context ctx) {
         ctx.json("Starting work for amount: " + ctx.pathParam("workAmount"));
+    }
+
+    private void join(Context ctx) {
+        log.info("Join request received");
+        try {
+            messageService.sendJoinMessage();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+    }
+
+    private void leave(Context ctx) {
+        log.info("Leave request received");
+        try {
+            messageService.sendLeaveMessage();
+            node.stopHealthChecker();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void kill(Context ctx) {
+        log.info("Kill request received");
+        node.stopHealthChecker();
+    }
+
+    private void getStatus(Context ctx) {
+        log.info("Get status request received");
     }
 }
