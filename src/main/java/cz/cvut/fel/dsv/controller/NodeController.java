@@ -1,5 +1,6 @@
 package cz.cvut.fel.dsv.controller;
 
+import cz.cvut.fel.dsv.node.Node;
 import cz.cvut.fel.dsv.node.NodeMessageService;
 import io.javalin.Javalin;
 
@@ -11,11 +12,13 @@ import static io.javalin.apibuilder.ApiBuilder.*;
 @Slf4j
 public class NodeController {
 
-    private NodeMessageService messageService;
+    private final NodeMessageService messageService;
+    private final Node node;
 
-    public NodeController(int port, String ip, NodeMessageService service) {
+    public NodeController(int port, String ip, NodeMessageService service, Node node) {
         setupServer(port, ip);
         messageService = service;
+        this.node = node;
     }
 
     public void setupServer(int port, String ip) {
@@ -25,7 +28,6 @@ public class NodeController {
                 get("/join", this::join);
                 get("/leave", this::leave);
                 get("/kill", this::kill);
-                get("/revive", this::revive);
                 get("/status", this::getStatus);
                 post("/delay/{milliseconds}", this::setDelay);
                 post("/start/{workAmount}", this::startWork);
@@ -56,6 +58,7 @@ public class NodeController {
         log.info("Leave request received");
         try {
             messageService.sendLeaveMessage();
+            node.stopHealthChecker();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -63,10 +66,7 @@ public class NodeController {
 
     private void kill(Context ctx) {
         log.info("Kill request received");
-    }
-
-    private void revive(Context ctx) {
-        log.info("Revive request received");
+        node.stopHealthChecker();
     }
 
     private void getStatus(Context ctx) {
