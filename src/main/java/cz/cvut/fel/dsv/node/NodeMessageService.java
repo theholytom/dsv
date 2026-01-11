@@ -19,7 +19,7 @@ public class NodeMessageService {
     private final Node node;
     private final String nodeId;
     @Getter
-    private long lastHealthcheck = 0;
+    private volatile long lastHealthcheck = 0;
     private boolean topUpdateReceived;
     private final int JOIN_RESPONSE_TIMEOUT = 7000;
 
@@ -76,6 +76,9 @@ public class NodeMessageService {
                     log.info("Processing TOPOLOGY_UPDATE from node {}", message.getSenderId());
                     handleTopologyUpdate(message);
                     break;
+                case WORK_ASSIGNMENT:
+                    log.info("Processing WORK_ASSIGNMENT from node {}. Work amount: {}", message.getSenderId(), message.getContent());
+                    break;
                 default:
                     log.warn("Node received unhandled message type: {}", message.getType());
             }
@@ -100,6 +103,14 @@ public class NodeMessageService {
 
     public void sendHealthcheck(String targetId) {
         sendMessage(new Message(nodeId, targetId, MessageType.HEALTHCHECK, ""));
+    }
+
+    public void broadcastWorkAssignment(int workForEachNode) {
+        sendMessage(new Message(nodeId, "all", MessageType.WORK_ASSIGNMENT, String.valueOf(workForEachNode)));
+    }
+
+    public void sendWorkAssignment(String targetId, int work) {
+        sendMessage(new Message(nodeId, targetId, MessageType.WORK_ASSIGNMENT, String.valueOf(work)));
     }
 
     // ----------------------- Metody pro handling konkrétních zpráv -----------------------

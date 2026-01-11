@@ -137,4 +137,26 @@ public class Node {
             healthCheckerThread = null;
         }
     }
+
+    public void distributeWork(int workAmount) {
+        // vypočítat kolik práce rozdělit a odeslat
+        int workForEachNode = calculateWork(workAmount);
+        if (workForEachNode != workAmount) {
+            messageService.broadcastWorkAssignment(workForEachNode);
+        }
+
+        // zpracovat práci sám
+    }
+
+    private int calculateWork(int workAmount) {
+        int topologySize = topology.getOrder().size();
+
+        if (topologySize <= 1 || !topology.getOrder().contains(nodeId)) {
+            log.info("Node is alone -> The work was not divided!!!");
+            return workAmount;
+        }
+
+        int remainder = workAmount % topologySize;
+        return (workAmount - remainder) / topologySize;
+    }
 }
