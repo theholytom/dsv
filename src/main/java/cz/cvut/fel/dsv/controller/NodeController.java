@@ -41,6 +41,16 @@ public class NodeController {
     }
 
     private void startWork(Context ctx) {
+        log.info("Start work request received with work amount of {} units", ctx.pathParam("workAmount"));
+        int workAmount = 0;
+        try {
+            workAmount = Integer.parseInt(ctx.pathParam("workAmount"));
+        } catch (Exception e) {
+            log.error("Incorrect parameter type: {} is not int", ctx.pathParam("workAmount"));
+            return;
+        }
+        node.distributeWork(workAmount);
+
         ctx.json("Starting work for amount: " + ctx.pathParam("workAmount"));
     }
 
