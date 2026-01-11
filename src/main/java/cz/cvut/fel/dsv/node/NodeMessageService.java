@@ -19,9 +19,10 @@ public class NodeMessageService {
     private final Node node;
     private final String nodeId;
     @Getter
-    private long lastHealthcheck = 0;
+    private volatile long lastHealthcheck = 0;
     private boolean topUpdateReceived;
-    private final int JOIN_RESPONSE_TIMEOUT = 7000;
+    private static final int JOIN_RESPONSE_TIMEOUT = 7000;
+    private volatile Thread joinTimerThread;
 
     public NodeMessageService(Channel channel, String exchangeName, Node node) {
         this.channel = channel;
@@ -76,6 +77,14 @@ public class NodeMessageService {
                     log.info("Processing TOPOLOGY_UPDATE from node {}", message.getSenderId());
                     handleTopologyUpdate(message);
                     break;
+                case WORK_ASSIGNMENT:
+                    log.info("Processing WORK_ASSIGNMENT from node {}. Work amount: {}", message.getSenderId(), message.getContent());
+                    handleWorkAssignment(message);
+                    break;
+                case WORK_REQUEST:
+                    log.info("Processing WORK_REQUEST from node {}", message.getSenderId());
+                    handleWorkRequest(message);
+                    break;
                 default:
                     log.warn("Node received unhandled message type: {}", message.getType());
             }
@@ -102,14 +111,50 @@ public class NodeMessageService {
         sendMessage(new Message(nodeId, targetId, MessageType.HEALTHCHECK, ""));
     }
 
+    public void broadcastWorkAssignment(int workForEachNode) {
+        sendMessage(new Message(nodeId, "all", MessageType.WORK_ASSIGNMENT, String.valueOf(workForEachNode)));
+    }
+
+    public void sendWorkAssignment(String targetId, int work) {
+        sendMessage(new Message(nodeId, targetId, MessageType.WORK_ASSIGNMENT, String.valueOf(work)));
+    }
+
+    public void sendWorkRequest() {
+        String prev = node.getPrevNode();
+        String next = node.getNextNode();
+        if (prev == null || next == null || prev.isEmpty() || next.isEmpty()) { // node is alone
+            return;
+        }
+        if (prev.equals(next)) { // only 2 nodes in topology
+            sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
+            return;
+        }
+
+        // more than 2 nodes in topology
+        sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
+        sendMessage(new Message(nodeId, node.getNextNode(), MessageType.WORK_REQUEST, ""));
+    }
+
     // ----------------------- Metody pro handling konkrétních zpráv -----------------------
+
+    private void handleWorkRequest(Message message) {
+        int workToAssign = node.assignWork();
+        if (workToAssign != 0) {
+            sendWorkAssignment(message.getSenderId(), workToAssign);
+        }
+    }
+
+    private void handleWorkAssignment(Message message) {
+        int toAdd = Integer.parseInt(message.getContent());
+        node.updateWork(work -> work + toAdd);
+        synchronized (node) {
+            node.notifyAll();
+        }
+    }
 
     private void handleJoinMessage(String senderId) {
 
         ArrayList<String> presentOrder = node.getTopology().getOrder();
-        topUpdateReceived = false;
-
-        long time = System.currentTimeMillis();
 
         // if join request sender is already a part of the network -> ignore
         if (presentOrder.contains(senderId)) {
@@ -124,13 +169,9 @@ public class NodeMessageService {
         }
 
         if (senderId.equals(nodeId) && presentOrder.isEmpty()) {
-            while (true) {
-                if (System.currentTimeMillis() - time > JOIN_RESPONSE_TIMEOUT && !topUpdateReceived) {
-                    // there is no node in the topology and no other node have added him -> node can add himself
-                    addNodeToTopology(senderId);
-                    return;
-                }
-            }
+            scheduleSelfJoinIfNoResponse();
+            topUpdateReceived = false;
+            return;
         }
         log.info("Node {} could not add node {} to the network", nodeId, senderId);
     }
@@ -216,5 +257,28 @@ public class NodeMessageService {
 
     public void resetLastHealthcheck() {
         lastHealthcheck = 0;
+    }
+
+    private void scheduleSelfJoinIfNoResponse() {
+
+        Thread old = joinTimerThread;
+        if (old != null) old.interrupt();
+
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(JOIN_RESPONSE_TIMEOUT);
+
+                if (node.getTopology().getOrder().isEmpty() && !topUpdateReceived) {
+                    addNodeToTopology(nodeId);
+                    return;
+                }
+                joinTimerThread.interrupt();
+            } catch (InterruptedException ignored) {
+                // přišel topology update -> timer se ruší
+            }
+        }, "join-timer");
+        t.setDaemon(true);
+        joinTimerThread = t;
+        t.start();
     }
 }

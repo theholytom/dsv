@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.function.Function;
 
 @Slf4j
 public class Node {
@@ -18,6 +19,11 @@ public class Node {
     private HealthChecker healthChecker;
     private Thread healthCheckerThread;
     @Getter
+    private Worker worker;
+    private Thread workerThread;
+    @Getter
+    private volatile int work = 0;
+    @Getter
     private final String nodeId;
     @Getter
     private Topology topology;
@@ -25,6 +31,8 @@ public class Node {
     private String prevNode;
     @Getter
     private String nextNode;
+    private final static int MIN_WORK_AMOUNT = 6;
+    private final static int MAX_WORK_TO_ASSIGN = 3;
 
     public Node(NodeDetails details, Channel channel, String exchangeName) {
         this.details = details;
@@ -40,6 +48,7 @@ public class Node {
         setupQueue();
         messageService = new NodeMessageService(channel, exchangeName, this);
         new NodeController(details.getPort(), details.getHost(), messageService, this);
+        setupWorker();
     }
 
     private void setupQueue() {
@@ -77,6 +86,14 @@ public class Node {
         }
     }
 
+    private void setupWorker() {
+        this.worker = new Worker(this, messageService);
+        workerThread = new Thread(worker);
+        workerThread.setDaemon(true);
+        workerThread.start();
+        log.info("Worker for node {} started", nodeId);
+    }
+
     public void setTopology(Topology newTop) {
         this.topology = newTop;
 
@@ -90,7 +107,11 @@ public class Node {
         }
 
         int index = this.topology.getOrder().indexOf(nodeId);
-        if (index == -1) return; // nodeId not present in order list
+        if (index == -1) { // nodeId not present in order list
+            nextNode = "";
+            prevNode = "";
+            return;
+        }
 
         int nextIndex = (index + 1) % size;
         int prevIndex = (index - 1 + size) % size;
@@ -136,5 +157,44 @@ public class Node {
             healthCheckerThread.interrupt();
             healthCheckerThread = null;
         }
+    }
+
+    public synchronized void distributeWork(int workAmount) {
+        // vypočítat kolik práce rozdělit a odeslat
+        int workForEachNode = calculateWork(workAmount);
+        if (workForEachNode != workAmount) {
+            messageService.broadcastWorkAssignment(workForEachNode);
+            updateWork(x -> x + (workAmount % topology.getOrder().size()));
+            this.notify();
+            return;
+        }
+        updateWork(x -> x + workAmount);
+        this.notify();
+    }
+
+    private int calculateWork(int workAmount) {
+        int topologySize = topology.getOrder().size();
+
+        if (topologySize <= 1 || !topology.getOrder().contains(nodeId)) {
+            log.info("Node is alone -> The work was not divided!!!");
+            return workAmount;
+        }
+
+        int remainder = workAmount % topologySize;
+        return (workAmount - remainder) / topologySize;
+    }
+
+    public synchronized void updateWork(Function<Integer, Integer> operation ) {
+        int old = work;
+        work = operation.apply(old);
+        log.info("Work updated from {} to {}", old, work);
+    }
+
+    public int assignWork() {
+        if (work > MIN_WORK_AMOUNT) {
+            updateWork(x -> x - MAX_WORK_TO_ASSIGN);
+            return MAX_WORK_TO_ASSIGN;
+        }
+        return 0;
     }
 }
