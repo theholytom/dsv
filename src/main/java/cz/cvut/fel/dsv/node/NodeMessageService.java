@@ -115,12 +115,17 @@ public class NodeMessageService {
 
     // ----------------------- Metody pro handling konkrétních zpráv -----------------------
 
+    private void handleWorkAssignment(Message message) {
+        int toAdd = Integer.parseInt(message.getContent());
+        node.updateWork(work -> work + toAdd);
+        synchronized (node) {
+            node.notifyAll();
+        }
+    }
+
     private void handleJoinMessage(String senderId) {
 
         ArrayList<String> presentOrder = node.getTopology().getOrder();
-        topUpdateReceived = false;
-
-        long time = System.currentTimeMillis();
 
         // if join request sender is already a part of the network -> ignore
         if (presentOrder.contains(senderId)) {
@@ -135,13 +140,9 @@ public class NodeMessageService {
         }
 
         if (senderId.equals(nodeId) && presentOrder.isEmpty()) {
-            while (true) {
-                if (System.currentTimeMillis() - time > JOIN_RESPONSE_TIMEOUT && !topUpdateReceived) {
-                    // there is no node in the topology and no other node have added him -> node can add himself
-                    addNodeToTopology(senderId);
-                    return;
-                }
-            }
+            scheduleSelfJoinIfNoResponse();
+            topUpdateReceived = false;
+            return;
         }
         log.info("Node {} could not add node {} to the network", nodeId, senderId);
     }
@@ -227,5 +228,28 @@ public class NodeMessageService {
 
     public void resetLastHealthcheck() {
         lastHealthcheck = 0;
+    }
+
+    private void scheduleSelfJoinIfNoResponse() {
+
+        Thread old = joinTimerThread;
+        if (old != null) old.interrupt();
+
+        Thread t = new Thread(() -> {
+            try {
+                Thread.sleep(JOIN_RESPONSE_TIMEOUT);
+
+                if (node.getTopology().getOrder().isEmpty() && !topUpdateReceived) {
+                    addNodeToTopology(nodeId);
+                    return;
+                }
+                joinTimerThread.interrupt();
+            } catch (InterruptedException ignored) {
+                // přišel topology update -> timer se ruší
+            }
+        }, "join-timer");
+        t.setDaemon(true);
+        joinTimerThread = t;
+        t.start();
     }
 }
