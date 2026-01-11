@@ -31,6 +31,8 @@ public class Node {
     private String prevNode;
     @Getter
     private String nextNode;
+    private final static int MIN_WORK_AMOUNT = 6;
+    private final static int MAX_WORK_TO_ASSIGN = 3;
 
     public Node(NodeDetails details, Channel channel, String exchangeName) {
         this.details = details;
@@ -105,7 +107,11 @@ public class Node {
         }
 
         int index = this.topology.getOrder().indexOf(nodeId);
-        if (index == -1) return; // nodeId not present in order list
+        if (index == -1) { // nodeId not present in order list
+            nextNode = "";
+            prevNode = "";
+            return;
+        }
 
         int nextIndex = (index + 1) % size;
         int prevIndex = (index - 1 + size) % size;
@@ -182,5 +188,13 @@ public class Node {
         int old = work;
         work = operation.apply(old);
         log.info("Work updated from {} to {}", old, work);
+    }
+
+    public int assignWork() {
+        if (work > MIN_WORK_AMOUNT) {
+            updateWork(x -> x - MAX_WORK_TO_ASSIGN);
+            return MAX_WORK_TO_ASSIGN;
+        }
+        return 0;
     }
 }

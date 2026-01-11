@@ -11,6 +11,7 @@ public class Worker implements Runnable {
     private final NodeMessageService messageService;
     private final static int INT_BOUND = 20;
     private final Random random = new Random();
+    private final int workTime = random.nextInt(INT_BOUND) * 1000;
 
     public Worker(Node node, NodeMessageService messageService) {
         this.node = node;
@@ -25,7 +26,8 @@ public class Worker implements Runnable {
                 while (node.getWork() <= 0) {
                     try {
                         log.info("Thread {} waiting", Thread.currentThread());
-                        node.wait(); // safe: holding node's monitor
+                        messageService.sendWorkRequest();
+                        node.wait();
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                         return;
@@ -39,7 +41,7 @@ public class Worker implements Runnable {
 
     private void work() {
         node.updateWork(work -> work - 1);
-        int workTime = random.nextInt(INT_BOUND) * 1000;
+
         try {
             Thread.sleep(workTime);
         } catch (InterruptedException e) {

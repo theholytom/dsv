@@ -81,6 +81,10 @@ public class NodeMessageService {
                     log.info("Processing WORK_ASSIGNMENT from node {}. Work amount: {}", message.getSenderId(), message.getContent());
                     handleWorkAssignment(message);
                     break;
+                case WORK_REQUEST:
+                    log.info("Processing WORK_REQUEST from node {}", message.getSenderId());
+                    handleWorkRequest(message);
+                    break;
                 default:
                     log.warn("Node received unhandled message type: {}", message.getType());
             }
@@ -115,7 +119,30 @@ public class NodeMessageService {
         sendMessage(new Message(nodeId, targetId, MessageType.WORK_ASSIGNMENT, String.valueOf(work)));
     }
 
+    public void sendWorkRequest() {
+        String prev = node.getPrevNode();
+        String next = node.getNextNode();
+        if (prev == null || next == null || prev.isEmpty() || next.isEmpty()) { // node is alone
+            return;
+        }
+        if (prev.equals(next)) { // only 2 nodes in topology
+            sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
+            return;
+        }
+
+        // more than 2 nodes in topology
+        sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
+        sendMessage(new Message(nodeId, node.getNextNode(), MessageType.WORK_REQUEST, ""));
+    }
+
     // ----------------------- Metody pro handling konkrétních zpráv -----------------------
+
+    private void handleWorkRequest(Message message) {
+        int workToAssign = node.assignWork();
+        if (workToAssign != 0) {
+            sendWorkAssignment(message.getSenderId(), workToAssign);
+        }
+    }
 
     private void handleWorkAssignment(Message message) {
         int toAdd = Integer.parseInt(message.getContent());
