@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.function.Function;
 
 @Slf4j
 public class Node {
@@ -17,6 +18,11 @@ public class Node {
     private NodeMessageService messageService;
     private HealthChecker healthChecker;
     private Thread healthCheckerThread;
+    @Getter
+    private Worker worker;
+    private Thread workerThread;
+    @Getter
+    private volatile int work = 0;
     @Getter
     private final String nodeId;
     @Getter
@@ -40,6 +46,7 @@ public class Node {
         setupQueue();
         messageService = new NodeMessageService(channel, exchangeName, this);
         new NodeController(details.getPort(), details.getHost(), messageService, this);
+        setupWorker();
     }
 
     private void setupQueue() {
@@ -75,6 +82,14 @@ public class Node {
             log.error("Failed to setup node queue for {}", nodeId, e);
             throw new RuntimeException(e);
         }
+    }
+
+    private void setupWorker() {
+        this.worker = new Worker(this, messageService);
+        workerThread = new Thread(worker);
+        workerThread.setDaemon(true);
+        workerThread.start();
+        log.info("Worker for node {} started", nodeId);
     }
 
     public void setTopology(Topology newTop) {
@@ -138,14 +153,17 @@ public class Node {
         }
     }
 
-    public void distributeWork(int workAmount) {
+    public synchronized void distributeWork(int workAmount) {
         // vypočítat kolik práce rozdělit a odeslat
         int workForEachNode = calculateWork(workAmount);
         if (workForEachNode != workAmount) {
             messageService.broadcastWorkAssignment(workForEachNode);
+            updateWork(x -> x + (workAmount % topology.getOrder().size()));
+            this.notify();
+            return;
         }
-
-        // zpracovat práci sám
+        updateWork(x -> x + workAmount);
+        this.notify();
     }
 
     private int calculateWork(int workAmount) {
@@ -158,5 +176,11 @@ public class Node {
 
         int remainder = workAmount % topologySize;
         return (workAmount - remainder) / topologySize;
+    }
+
+    public synchronized void updateWork(Function<Integer, Integer> operation ) {
+        int old = work;
+        work = operation.apply(old);
+        log.info("Work updated from {} to {}", old, work);
     }
 }

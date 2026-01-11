@@ -21,7 +21,8 @@ public class NodeMessageService {
     @Getter
     private volatile long lastHealthcheck = 0;
     private boolean topUpdateReceived;
-    private final int JOIN_RESPONSE_TIMEOUT = 7000;
+    private static final int JOIN_RESPONSE_TIMEOUT = 7000;
+    private volatile Thread joinTimerThread;
 
     public NodeMessageService(Channel channel, String exchangeName, Node node) {
         this.channel = channel;
@@ -78,6 +79,7 @@ public class NodeMessageService {
                     break;
                 case WORK_ASSIGNMENT:
                     log.info("Processing WORK_ASSIGNMENT from node {}. Work amount: {}", message.getSenderId(), message.getContent());
+                    handleWorkAssignment(message);
                     break;
                 default:
                     log.warn("Node received unhandled message type: {}", message.getType());
