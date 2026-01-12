@@ -26,6 +26,10 @@ public class Worker implements Runnable {
                 while (node.getWork() <= 0) {
                     try {
                         log.info("Thread {} waiting", Thread.currentThread());
+                        node.setActive(false);
+                        if (node.isHasToken()) {
+                            messageService.sendToken();
+                        }
                         messageService.sendWorkRequest();
                         node.wait();
                     } catch (InterruptedException e) {
@@ -48,9 +52,5 @@ public class Worker implements Runnable {
             log.error("Error in work method inside worker");
             throw new RuntimeException(e);
         }
-    }
-
-    private void completed() {
-
     }
 }
