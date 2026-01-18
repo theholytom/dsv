@@ -179,13 +179,14 @@ public class Node {
         int workForEachNode = calculateWork(workAmount);
         if (workForEachNode != workAmount) {
             messageService.broadcastWorkAssignment(workForEachNode);
-            updateWork(x -> x + (workAmount % topology.getOrder().size()));
-            this.notify();
+            int remainder = workAmount % topology.getOrder().size();
+            if (remainder > 0) {
+                updateWork(x -> x + (workAmount % topology.getOrder().size()));
+            }
             return;
         }
         updateWork(x -> x + workAmount);
         setActive(true);
-        // no need to generate token - node alone - when done -> termination detected
         this.notify();
     }
 

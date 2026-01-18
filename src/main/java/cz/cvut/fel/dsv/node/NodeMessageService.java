@@ -149,11 +149,13 @@ public class NodeMessageService {
 
     public void sendToken() {
         synchronized (node) {
-            if (!node.isNodeWhite()) node.setTokenWhite(false);
-            node.setHasToken(false);
-            sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.TOKEN, String.valueOf(node.isTokenWhite())));
-            node.setNodeWhite(true);
-            log.info("{} sent TOKEN to {}, white: {}", nodeId, node.getPrevNode(), node.isTokenWhite());
+            if (node.getTopology().getOrder().size() > 1 && node.getTopology().getOrder().contains(nodeId)) {
+                if (!node.isNodeWhite()) node.setTokenWhite(false);
+                node.setHasToken(false);
+                sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.TOKEN, String.valueOf(node.isTokenWhite())));
+                node.setNodeWhite(true);
+                log.info("{} sent TOKEN to {}, white: {}", nodeId, node.getPrevNode(), node.isTokenWhite());
+            }
         }
     }
 
