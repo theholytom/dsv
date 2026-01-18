@@ -8,6 +8,8 @@ fi
 
 RABBIT1_IP=$1
 RABBIT2_IP=$2
+#zakomentovat pokud půjde přes user input
+ERLANG_COOKIE=euUGa56vSYS2eu1rPBQQNJJl/kOLrPr5xondM8FqhCMYXOCb3KAoKfHV
 
 # Instalace RabbitMQ
 sudo apt-get update
@@ -21,8 +23,10 @@ echo "$RABBIT1_IP rabbit1
 $RABBIT2_IP rabbit2" | sudo tee -a /etc/hosts
 
 # Zde je potřeba ručně vložit Erlang cookie z prvního serveru
-echo "Vložte Erlang cookie z prvního serveru:"
-read ERLANG_COOKIE
+#echo "Vložte Erlang cookie z prvního serveru:"
+#read ERLANG_COOKIE
+#sudo sh -c "echo $ERLANG_COOKIE > /var/lib/rabbitmq/.erlang.cookie"
+echo "Vkládám Erlang cookie z prvního serveru"
 sudo sh -c "echo $ERLANG_COOKIE > /var/lib/rabbitmq/.erlang.cookie"
 sudo chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie
 sudo chmod 400 /var/lib/rabbitmq/.erlang.cookie
