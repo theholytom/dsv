@@ -1,13 +1,13 @@
 {
   "username": "myuser",
   "password": "mypassword",
-  "hosts" :[
+  "addresses" :[
     {
-      "host": "",
+      "host": "192.168.64.6",
       "port": 5672
     },
     {
-      "host": "",
+      "host": "192.168.64.7",
       "port": 5672
     }
   ]
