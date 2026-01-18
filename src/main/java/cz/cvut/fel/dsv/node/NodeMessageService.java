@@ -85,6 +85,12 @@ public class NodeMessageService {
                     log.info("Processing WORK_REQUEST from node {}", message.getSenderId());
                     handleWorkRequest(message);
                     break;
+                case TOKEN:
+                    log.info("Processing TOKEN from node {}, white: {}", message.getSenderId(), message.getContent());
+                    handleTokenReceive(message);
+                    break;
+                case TERMINATION_DETECTED:
+                    return;
                 default:
                     log.warn("Node received unhandled message type: {}", message.getType());
             }
@@ -112,10 +118,14 @@ public class NodeMessageService {
     }
 
     public void broadcastWorkAssignment(int workForEachNode) {
+        synchronized (node) {
+            node.setNodeWhite(false);
+        }
         sendMessage(new Message(nodeId, "all", MessageType.WORK_ASSIGNMENT, String.valueOf(workForEachNode)));
     }
 
     public void sendWorkAssignment(String targetId, int work) {
+        setBlackIfWrongDirection(targetId);
         sendMessage(new Message(nodeId, targetId, MessageType.WORK_ASSIGNMENT, String.valueOf(work)));
     }
 
@@ -123,6 +133,8 @@ public class NodeMessageService {
         String prev = node.getPrevNode();
         String next = node.getNextNode();
         if (prev == null || next == null || prev.isEmpty() || next.isEmpty()) { // node is alone
+            // termination detected
+            log.info("TERMINATION DETECTED, node was working alone");
             return;
         }
         if (prev.equals(next)) { // only 2 nodes in topology
@@ -135,7 +147,46 @@ public class NodeMessageService {
         sendMessage(new Message(nodeId, node.getNextNode(), MessageType.WORK_REQUEST, ""));
     }
 
+    public void sendToken() {
+        synchronized (node) {
+            if (!node.isNodeWhite()) node.setTokenWhite(false);
+            node.setHasToken(false);
+            sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.TOKEN, String.valueOf(node.isTokenWhite())));
+            node.setNodeWhite(true);
+            log.info("{} sent TOKEN to {}, white: {}", nodeId, node.getPrevNode(), node.isTokenWhite());
+        }
+    }
+
+    private void broadcastTerminationDetection() {
+        sendMessage(new Message(nodeId, "all", MessageType.TERMINATION_DETECTED, ""));
+    }
+
     // ----------------------- Metody pro handling konkrétních zpráv -----------------------
+
+    private void handleTokenReceive(Message message) {
+        synchronized (node) {
+            if (!message.getSenderId().equals(node.getNextNode())) {
+                log.error("Token received from incorrect node - {} instead of {}", message.getSenderId(), node.getNextNode());
+                return;
+            }
+            node.setHasToken(true);
+            node.setTokenWhite(Boolean.parseBoolean(message.getContent()));
+            if (node.getTopology().getOrder().get(0).equals(nodeId)) {
+                if (node.isTokenWhite() && node.isNodeWhite()) {
+                    // termination detected
+                    log.info("TERMINATION DETECTED, sending message to other nodes.");
+                    broadcastTerminationDetection();
+                    return;
+                } else {
+                    node.setTokenWhite(true);
+                }
+            }
+            if (!node.isActive()) {
+                sendToken();
+            }
+        }
+
+    }
 
     private void handleWorkRequest(Message message) {
         int workToAssign = node.assignWork();
@@ -148,6 +199,7 @@ public class NodeMessageService {
         int toAdd = Integer.parseInt(message.getContent());
         node.updateWork(work -> work + toAdd);
         synchronized (node) {
+            node.setActive(true);
             node.notifyAll();
         }
     }
@@ -222,6 +274,23 @@ public class NodeMessageService {
     }
 
     // ----------------------- helper metody -----------------------
+
+    private void setBlackIfWrongDirection(String targetId) {
+        synchronized (node) {
+            if (node.getTopology().getOrder().indexOf(targetId) > node.getTopology().getOrder().indexOf(nodeId)) {
+                node.setNodeWhite(false);
+            }
+        }
+    }
+
+    private void generateTokenIfLeader() {
+        synchronized (node) {
+            if (node.getTopology().getOrder().get(0).equals(nodeId)) {
+                node.setHasToken(true);
+                node.setTokenWhite(true);
+            }
+        }
+    }
 
     private Topology sortOrderAndIncrementVersion(ArrayList<String> list) {
         list.sort(String.CASE_INSENSITIVE_ORDER);

@@ -8,4 +8,5 @@ public enum MessageType {
     JOIN,
     LEAVE,
     TOPOLOGY_UPDATE,
+    TERMINATION_DETECTED
 }

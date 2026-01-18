@@ -4,6 +4,7 @@ import com.rabbitmq.client.Channel;
 import cz.cvut.fel.dsv.controller.NodeController;
 import cz.cvut.fel.dsv.healthcheck.HealthChecker;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -33,12 +34,27 @@ public class Node {
     private String nextNode;
     private final static int MIN_WORK_AMOUNT = 6;
     private final static int MAX_WORK_TO_ASSIGN = 3;
+    @Getter
+    @Setter
+    private volatile boolean hasToken;
+    @Getter
+    @Setter
+    private volatile boolean isNodeWhite;
+    @Getter
+    @Setter
+    private volatile boolean isTokenWhite;
+    @Getter
+    @Setter
+    private volatile boolean isActive;
 
     public Node(NodeDetails details, Channel channel, String exchangeName) {
         this.details = details;
         this.channel = channel;
         this.exchangeName = exchangeName;
         this.topology = new Topology(new ArrayList<>(), 0);
+        this.hasToken = false;
+        this.isNodeWhite = true;
+        this.isActive = false;
 
         this.nodeId = details.getNodeId();
     }
@@ -94,24 +110,23 @@ public class Node {
         log.info("Worker for node {} started", nodeId);
     }
 
-    public void setTopology(Topology newTop) {
+    public synchronized void setTopology(Topology newTop) {
         this.topology = newTop;
 
         int size = topology.getOrder().size();
 
-        if (size == 1) {
-            // node is alone in the network
-            // cancel node checker and return
+        if (size <= 1 || !topology.getOrder().contains(nodeId)) {
+            // node is alone in the network or not part of it
+            // cancel node checker, reset neighbours and return
+            nextNode = "";
+            prevNode = "";
             stopHealthChecker();
             return;
         }
 
+        renewTokenAndBurnOldToken();
+
         int index = this.topology.getOrder().indexOf(nodeId);
-        if (index == -1) { // nodeId not present in order list
-            nextNode = "";
-            prevNode = "";
-            return;
-        }
 
         int nextIndex = (index + 1) % size;
         int prevIndex = (index - 1 + size) % size;
@@ -169,6 +184,8 @@ public class Node {
             return;
         }
         updateWork(x -> x + workAmount);
+        setActive(true);
+        // no need to generate token - node alone - when done -> termination detected
         this.notify();
     }
 
@@ -196,5 +213,19 @@ public class Node {
             return MAX_WORK_TO_ASSIGN;
         }
         return 0;
+    }
+
+    private void renewTokenAndBurnOldToken() {
+        // leader keeps/creates token
+        if (topology.getOrder().get(0).equals(nodeId)) {
+            setHasToken(true);
+            setTokenWhite(true);
+            log.info("{} renewed TOKEN as the leader", nodeId);
+            return;
+        }
+
+        //other nodes burn token
+        if (hasToken) log.info("{} has burned the TOKEN", nodeId);
+        setHasToken(false);
     }
 }
