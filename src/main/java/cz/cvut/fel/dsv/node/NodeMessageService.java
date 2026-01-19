@@ -138,13 +138,13 @@ public class NodeMessageService {
             return;
         }
         if (prev.equals(next)) { // only 2 nodes in topology
-            sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
+            sendMessage(new Message(nodeId, prev, MessageType.WORK_REQUEST, ""));
             return;
         }
 
         // more than 2 nodes in topology
-        sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
-        sendMessage(new Message(nodeId, node.getNextNode(), MessageType.WORK_REQUEST, ""));
+        sendMessage(new Message(nodeId, prev, MessageType.WORK_REQUEST, ""));
+        sendMessage(new Message(nodeId, next, MessageType.WORK_REQUEST, ""));
     }
 
     public void sendToken() {
