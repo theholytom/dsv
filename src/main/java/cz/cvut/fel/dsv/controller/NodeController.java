@@ -37,6 +37,14 @@ public class NodeController {
 
     private void setDelay(Context ctx) {
         log.info("Set delay request received with value {}", ctx.pathParam("milliseconds"));
+        int delay = 0;
+        try {
+            delay = Integer.parseInt(ctx.pathParam("milliseconds"));
+        } catch (Exception e) {
+            log.error("Incorrect parameter type: {} is not int", ctx.pathParam("milliseconds"));
+            return;
+        }
+        messageService.setDelay(delay);
         ctx.json("Delay set to: " + ctx.pathParam("milliseconds"));
     }
 
@@ -58,6 +66,7 @@ public class NodeController {
         log.info("Join request received");
         try {
             messageService.sendJoinMessage();
+            ctx.result("processing JOIN request");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -69,6 +78,7 @@ public class NodeController {
         try {
             messageService.sendLeaveMessage();
             node.stopHealthChecker();
+            ctx.result("processing LEAVE request");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -77,6 +87,7 @@ public class NodeController {
     private void kill(Context ctx) {
         log.info("Kill request received");
         node.stopHealthChecker();
+        ctx.result("processing KILL request");
     }
 
     private void getStatus(Context ctx) {

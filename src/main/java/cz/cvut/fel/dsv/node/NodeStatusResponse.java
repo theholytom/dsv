@@ -20,4 +20,5 @@ public class NodeStatusResponse {
     private boolean isNodeWhite;
     private boolean isTokenWhite;
     private boolean isActive;
+    private int delay;
 }

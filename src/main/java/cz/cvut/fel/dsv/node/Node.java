@@ -221,7 +221,7 @@ public class Node {
         if (topology.getOrder().get(0).equals(nodeId)) {
             setHasToken(true);
             setTokenWhite(true);
-            notify();
+            notifyAll();
             log.info("{} renewed TOKEN as the leader", nodeId);
             return;
         }
@@ -242,7 +242,8 @@ public class Node {
                 hasToken,
                 isNodeWhite,
                 isTokenWhite,
-                isActive
+                isActive,
+                messageService.getDelay()
         );
     }
 }

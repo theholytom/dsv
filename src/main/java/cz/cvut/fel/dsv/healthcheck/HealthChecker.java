@@ -10,8 +10,8 @@ public class HealthChecker implements Runnable {
     private final String nodeToCheck;
     private final String nodeToReportTo;
     private final NodeMessageService messageService;
-    private static final int INTERVAL = 3000;
-    private static final int TIMEOUT = 4000;
+    private static final int INTERVAL = 1500;
+    private static final int TIMEOUT = 5000;
     private boolean running = false;
 
     public HealthChecker(String nodeToReportTo, String nodeToCheck, NodeMessageService messageService) {

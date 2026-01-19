@@ -6,6 +6,7 @@ import com.rabbitmq.client.Channel;
 import cz.cvut.fel.dsv.message.Message;
 import cz.cvut.fel.dsv.message.MessageType;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -23,6 +24,9 @@ public class NodeMessageService {
     private boolean topUpdateReceived;
     private static final int JOIN_RESPONSE_TIMEOUT = 7000;
     private volatile Thread joinTimerThread;
+    @Setter
+    @Getter
+    private volatile int delay = 0;
 
     public NodeMessageService(Channel channel, String exchangeName, Node node) {
         this.channel = channel;
@@ -38,16 +42,33 @@ public class NodeMessageService {
     private void sendMessage(Message message) {
         String targetId = message.getTargetId();
         try {
-            String routingKey = "";
+            String routingKey;
             if (targetId.equals("all")) {
                 routingKey = "broadcast." + targetId;
             } else if (targetId.contains("node")) {
                 routingKey = "private." + targetId;
             } else {
+                routingKey = "";
                 log.error("Invalid routing key part ({}) when sending message from node {}", targetId, message.getSenderId());
             }
 
-            channel.basicPublish(exchangeName, routingKey, null, objectMapper.writeValueAsBytes(message));
+            if (delay == 0) {
+                channel.basicPublish(exchangeName, routingKey, null, objectMapper.writeValueAsBytes(message));
+            } else {
+
+                Thread t = new Thread(() -> {
+                    try {
+                        Thread.sleep(delay);
+                        channel.basicPublish(exchangeName, routingKey, null, objectMapper.writeValueAsBytes(message));
+                    } catch (Exception ignored) {
+                        // do nothing
+                    }
+                }, "MessageWithDelay");
+                t.setDaemon(true);
+                t.start();
+            }
+
+
         } catch (Exception e) {
             log.error("Error sending message of type: {}, to: {}. Error message: {}", message.getType(), targetId, e.getMessage(), e);
         }
