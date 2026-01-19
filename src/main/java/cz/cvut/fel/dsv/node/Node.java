@@ -177,7 +177,7 @@ public class Node {
     public synchronized void distributeWork(int workAmount) {
         // vypočítat kolik práce rozdělit a odeslat
         int workForEachNode = calculateWork(workAmount);
-        if (workForEachNode != workAmount) {
+        if (workForEachNode != workAmount && workForEachNode > 0) {
             messageService.broadcastWorkAssignment(workForEachNode);
             int remainder = workAmount % topology.getOrder().size();
             if (remainder > 0) {
@@ -221,6 +221,7 @@ public class Node {
         if (topology.getOrder().get(0).equals(nodeId)) {
             setHasToken(true);
             setTokenWhite(true);
+            notify();
             log.info("{} renewed TOKEN as the leader", nodeId);
             return;
         }
@@ -228,5 +229,20 @@ public class Node {
         //other nodes burn token
         if (hasToken) log.info("{} has burned the TOKEN", nodeId);
         setHasToken(false);
+    }
+
+    public NodeStatusResponse reportStatus() {
+        return new NodeStatusResponse(
+                nodeId,
+                details,
+                work,
+                topology,
+                prevNode,
+                nextNode,
+                hasToken,
+                isNodeWhite,
+                isTokenWhite,
+                isActive
+        );
     }
 }

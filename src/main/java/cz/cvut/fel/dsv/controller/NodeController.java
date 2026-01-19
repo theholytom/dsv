@@ -81,5 +81,11 @@ public class NodeController {
 
     private void getStatus(Context ctx) {
         log.info("Get status request received");
+        try {
+            ctx.json(node.reportStatus());
+        } catch (Exception e) {
+            log.error("Exception caught in getStatus!", e);
+        }
+
     }
 }
