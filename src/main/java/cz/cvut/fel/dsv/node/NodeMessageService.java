@@ -57,8 +57,8 @@ public class NodeMessageService {
         try {
             Message message = objectMapper.readValue(new String(body), Message.class);
 
-            log.info("Node {} received message: type={}, from={}", nodeId,
-                    message.getType(), message.getSenderId());
+//            log.info("Node {} received message: type={}, from={}", nodeId,
+//                    message.getType(), message.getSenderId());
 
             switch (message.getType()) {
                 case HEALTHCHECK:
@@ -90,6 +90,7 @@ public class NodeMessageService {
                     handleTokenReceive(message);
                     break;
                 case TERMINATION_DETECTED:
+                    log.info("TERMINATION DETECTED on {}", message.getSenderId());
                     return;
                 default:
                     log.warn("Node received unhandled message type: {}", message.getType());
@@ -198,6 +199,10 @@ public class NodeMessageService {
     }
 
     private void handleWorkAssignment(Message message) {
+        if (message.getTargetId().equals("all") && !node.getTopology().getOrder().contains(nodeId)) {
+            log.warn("{} is not part of topology -> NOT WORKING", nodeId);
+            return;
+        }
         int toAdd = Integer.parseInt(message.getContent());
         node.updateWork(work -> work + toAdd);
         synchronized (node) {
