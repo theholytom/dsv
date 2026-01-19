@@ -10,6 +10,7 @@ import cz.cvut.fel.dsv.node.NodeDetails;
 import cz.cvut.fel.dsv.node.RabbitMQDetails;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.util.List;
 
 @Slf4j
@@ -18,6 +19,8 @@ public class Main {
     private static final String NODE_EXCHANGE = "nodes.topic";
 
     public static void main(String[] args) {
+
+        new File("logs").mkdirs();
 
         String nodeId = parseNodeId(args);
 
