@@ -29,8 +29,8 @@ $RABBIT2_IP rabbit2" | sudo tee -a /etc/hosts
 echo "Vložte Erlang cookie z prvního serveru:"
 read ERLANG_COOKIE
 sudo sh -c "echo $ERLANG_COOKIE > /var/lib/rabbitmq/.erlang.cookie"
-echo "Vkládám Erlang cookie z prvního serveru"
-sudo sh -c "echo $ERLANG_COOKIE > /var/lib/rabbitmq/.erlang.cookie"
+#echo "Vkládám Erlang cookie z prvního serveru"
+#sudo sh -c "echo $ERLANG_COOKIE > /var/lib/rabbitmq/.erlang.cookie"
 sudo chown rabbitmq:rabbitmq /var/lib/rabbitmq/.erlang.cookie
 sudo chmod 400 /var/lib/rabbitmq/.erlang.cookie
 
