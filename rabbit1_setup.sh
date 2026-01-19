@@ -9,6 +9,9 @@ fi
 RABBIT1_IP=$1
 RABBIT2_IP=$2
 
+# Nastavení správného hostname
+sudo hostnamectl set-hostname rabbit1
+
 # Instalace RabbitMQ
 sudo apt-get update
 sudo apt-get install -y rabbitmq-server

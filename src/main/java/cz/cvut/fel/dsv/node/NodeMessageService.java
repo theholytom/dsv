@@ -6,6 +6,7 @@ import com.rabbitmq.client.Channel;
 import cz.cvut.fel.dsv.message.Message;
 import cz.cvut.fel.dsv.message.MessageType;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -23,6 +24,9 @@ public class NodeMessageService {
     private boolean topUpdateReceived;
     private static final int JOIN_RESPONSE_TIMEOUT = 7000;
     private volatile Thread joinTimerThread;
+    @Setter
+    @Getter
+    private volatile int delay = 0;
 
     public NodeMessageService(Channel channel, String exchangeName, Node node) {
         this.channel = channel;
@@ -38,16 +42,33 @@ public class NodeMessageService {
     private void sendMessage(Message message) {
         String targetId = message.getTargetId();
         try {
-            String routingKey = "";
+            String routingKey;
             if (targetId.equals("all")) {
                 routingKey = "broadcast." + targetId;
             } else if (targetId.contains("node")) {
                 routingKey = "private." + targetId;
             } else {
+                routingKey = "";
                 log.error("Invalid routing key part ({}) when sending message from node {}", targetId, message.getSenderId());
             }
 
-            channel.basicPublish(exchangeName, routingKey, null, objectMapper.writeValueAsBytes(message));
+            if (delay == 0) {
+                channel.basicPublish(exchangeName, routingKey, null, objectMapper.writeValueAsBytes(message));
+            } else {
+
+                Thread t = new Thread(() -> {
+                    try {
+                        Thread.sleep(delay);
+                        channel.basicPublish(exchangeName, routingKey, null, objectMapper.writeValueAsBytes(message));
+                    } catch (Exception ignored) {
+                        // do nothing
+                    }
+                }, "MessageWithDelay");
+                t.setDaemon(true);
+                t.start();
+            }
+
+
         } catch (Exception e) {
             log.error("Error sending message of type: {}, to: {}. Error message: {}", message.getType(), targetId, e.getMessage(), e);
         }
@@ -57,8 +78,8 @@ public class NodeMessageService {
         try {
             Message message = objectMapper.readValue(new String(body), Message.class);
 
-            log.info("Node {} received message: type={}, from={}", nodeId,
-                    message.getType(), message.getSenderId());
+//            log.info("Node {} received message: type={}, from={}", nodeId,
+//                    message.getType(), message.getSenderId());
 
             switch (message.getType()) {
                 case HEALTHCHECK:
@@ -90,6 +111,7 @@ public class NodeMessageService {
                     handleTokenReceive(message);
                     break;
                 case TERMINATION_DETECTED:
+                    log.info("TERMINATION DETECTED on {}", message.getSenderId());
                     return;
                 default:
                     log.warn("Node received unhandled message type: {}", message.getType());
@@ -138,22 +160,24 @@ public class NodeMessageService {
             return;
         }
         if (prev.equals(next)) { // only 2 nodes in topology
-            sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
+            sendMessage(new Message(nodeId, prev, MessageType.WORK_REQUEST, ""));
             return;
         }
 
         // more than 2 nodes in topology
-        sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.WORK_REQUEST, ""));
-        sendMessage(new Message(nodeId, node.getNextNode(), MessageType.WORK_REQUEST, ""));
+        sendMessage(new Message(nodeId, prev, MessageType.WORK_REQUEST, ""));
+        sendMessage(new Message(nodeId, next, MessageType.WORK_REQUEST, ""));
     }
 
     public void sendToken() {
         synchronized (node) {
-            if (!node.isNodeWhite()) node.setTokenWhite(false);
-            node.setHasToken(false);
-            sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.TOKEN, String.valueOf(node.isTokenWhite())));
-            node.setNodeWhite(true);
-            log.info("{} sent TOKEN to {}, white: {}", nodeId, node.getPrevNode(), node.isTokenWhite());
+            if (node.getTopology().getOrder().size() > 1 && node.getTopology().getOrder().contains(nodeId)) {
+                if (!node.isNodeWhite()) node.setTokenWhite(false);
+                node.setHasToken(false);
+                sendMessage(new Message(nodeId, node.getPrevNode(), MessageType.TOKEN, String.valueOf(node.isTokenWhite())));
+                node.setNodeWhite(true);
+                log.info("{} sent TOKEN to {}, white: {}", nodeId, node.getPrevNode(), node.isTokenWhite());
+            }
         }
     }
 
@@ -196,6 +220,10 @@ public class NodeMessageService {
     }
 
     private void handleWorkAssignment(Message message) {
+        if (message.getTargetId().equals("all") && !node.getTopology().getOrder().contains(nodeId)) {
+            log.warn("{} is not part of topology -> NOT WORKING", nodeId);
+            return;
+        }
         int toAdd = Integer.parseInt(message.getContent());
         node.updateWork(work -> work + toAdd);
         synchronized (node) {

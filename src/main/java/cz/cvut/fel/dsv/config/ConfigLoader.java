@@ -3,6 +3,7 @@ package cz.cvut.fel.dsv.config;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cz.cvut.fel.dsv.node.NodeDetails;
+import cz.cvut.fel.dsv.node.RabbitMQDetails;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.InputStream;
@@ -13,8 +14,9 @@ import java.util.Objects;
 public class ConfigLoader {
 
     private static final String CONFIG_PATH = "nodes.json";
+    private static final String RABBIT_CONFIG_PATH = "rabbitmq.json";
 
-    public static NodeDetails load(String nodeId) {
+    public static NodeDetails loadNodeDetails(String nodeId) {
         log.info("Loading configuration for node '{}'", nodeId);
 
         try (InputStream is = ConfigLoader.class
@@ -45,6 +47,40 @@ public class ConfigLoader {
             log.error("Failed to load node configuration", e);
             throw new IllegalStateException(
                     "Failed to load node configuration", e
+            );
+        }
+    }
+
+    public static RabbitMQDetails loadRabbitDetails() {
+        log.info("Loading rabbitMQ configuration");
+
+        try (InputStream is = ConfigLoader.class
+                .getClassLoader()
+                .getResourceAsStream(RABBIT_CONFIG_PATH)) {
+
+            if (is == null) {
+                log.error("Configuration file '{}' not found on classpath", RABBIT_CONFIG_PATH);
+                throw new IllegalStateException(
+                        "Configuration file not found: " + RABBIT_CONFIG_PATH
+                );
+            }
+
+            ObjectMapper mapper = new ObjectMapper();
+            RabbitMQDetails details = mapper.readValue(is, new TypeReference<>() {});
+
+            log.info(
+                    "Configuration loaded: management username: {}, addresses: {}, {}",
+                    details.getUsername(),
+                    details.getAddresses().get(0),
+                    details.getAddresses().get(1)
+            );
+
+            return details;
+
+        } catch (Exception e) {
+            log.error("Failed to load RabbitMQ configuration", e);
+            throw new IllegalStateException(
+                    "Failed to load RabbitMQ configuration", e
             );
         }
     }

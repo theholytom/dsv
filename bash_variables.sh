@@ -1,0 +1,18 @@
+#!/bin/bash
+
+### Nodes variables
+# Initialize arrays
+declare -a NODE_IP
+declare -a NODE_PORT
+
+NODE_IP[0]=127.0.0.1
+NODE_IP[1]=127.0.0.1
+NODE_IP[2]=127.0.0.1
+NODE_IP[3]=127.0.0.1
+NODE_IP[4]=192.168.64.3
+
+NODE_PORT[0]=5001
+NODE_PORT[1]=5002
+NODE_PORT[2]=5003
+NODE_PORT[3]=5004
+NODE_PORT[4]=5005

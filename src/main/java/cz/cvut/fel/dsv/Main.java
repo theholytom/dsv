@@ -1,12 +1,17 @@
 package cz.cvut.fel.dsv;
 
+import com.rabbitmq.client.Address;
 import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
 import com.rabbitmq.client.ConnectionFactory;
 import cz.cvut.fel.dsv.config.ConfigLoader;
 import cz.cvut.fel.dsv.node.Node;
 import cz.cvut.fel.dsv.node.NodeDetails;
+import cz.cvut.fel.dsv.node.RabbitMQDetails;
 import lombok.extern.slf4j.Slf4j;
+
+import java.io.File;
+import java.util.List;
 
 @Slf4j
 public class Main {
@@ -15,13 +20,15 @@ public class Main {
 
     public static void main(String[] args) {
 
+        new File("logs").mkdirs();
+
         String nodeId = parseNodeId(args);
 
         log.info("Starting node {}", nodeId);
 
         try {
-            NodeDetails config = ConfigLoader.load(nodeId);
-            Channel channel = createRabbitMQConnection();
+            NodeDetails config = ConfigLoader.loadNodeDetails(nodeId);
+            Channel channel = createRabbitMQConnection(ConfigLoader.loadRabbitDetails());
 
 
             Node node = new Node(config, channel, NODE_EXCHANGE);
@@ -62,12 +69,20 @@ public class Main {
         }
     }
 
-    private static Channel createRabbitMQConnection() {
+    private static Channel createRabbitMQConnection(RabbitMQDetails details) {
         try {
             ConnectionFactory factory = new ConnectionFactory();
-            factory.setHost("localhost");
+            factory.setUsername(details.getUsername());
+            factory.setPassword(details.getPassword());
+            factory.setAutomaticRecoveryEnabled(true);
+            factory.setNetworkRecoveryInterval(10000);
 
-            Connection connection = factory.newConnection();
+            factory.setConnectionTimeout(5000);
+            factory.setHandshakeTimeout(10000);
+
+            List<Address> addresses = List.of(new Address(details.getAddresses().get(0).getHost(), details.getAddresses().get(0).getPort()), new Address(details.getAddresses().get(1).getHost(), details.getAddresses().get(1).getPort()));
+
+            Connection connection = factory.newConnection(addresses);
             return connection.createChannel();
         } catch (Exception e) {
             throw new RuntimeException(e);
