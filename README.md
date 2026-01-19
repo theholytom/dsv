@@ -7,6 +7,22 @@ the ids. The communication between the nodes is provided via a RabbitMQ cluster
 that each node is connected to. Additionally, each node can be controlled via a 
 REST interface.
 
+## Contents
+
+- Node
+  - Javalin Controller
+  - Messaging Service
+  - Healthcheck Service
+  - Worker Service
+- Topology
+  - JOIN
+  - LEAVE
+  - KILL
+  - TOPOLOGY_UPDATE
+- Termination Detection Algorithm
+- Setup Instructions
+
+
 ## Node
 
 A node is implemented as Java application. Each node has a Javalin controller to 
@@ -24,7 +40,7 @@ Here is the list of endpoints each node is exposing for user interaction.
 address:port/                   # hello world!
 address:port/join               # JOIN topology request
 address:port/leave              # LEAVE topology request
-address:port/join               # KILL node request
+address:port/kill               # KILL node request
 address:port/status             # Node Status request
 ```
 
